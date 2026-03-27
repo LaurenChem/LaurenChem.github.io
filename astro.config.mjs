@@ -47,6 +47,6 @@ export default defineConfig({
     devToolbar: {
         enabled: false,
     },
-    site: "https://taibeled.github.io",
+    site: "https://laurenchem.github.io",
     base: "JetLagHideAndSeek",
 });

@@ -48,5 +48,5 @@ export default defineConfig({
         enabled: false,
     },
     site: "https://laurenchem.github.io",
-    base: "JetLagHideAndSeek",
+    base: "/JetLagHideAndSeek/",
 });

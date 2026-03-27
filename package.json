@@ -16,7 +16,7 @@
         "@astrojs/react": "4.2.0",
         "@astrojs/tailwind": "^5.1.5",
         "@nanostores/persistent": "^0.10.2",
-        "@nanostores/react": "^0.8.4",
+        "@nanostores/react": "^1.0.0",
         "@radix-ui/react-alert-dialog": "^1.1.11",
         "@radix-ui/react-checkbox": "^1.2.3",
         "@radix-ui/react-dialog": "^1.1.13",

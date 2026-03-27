@@ -15,6 +15,7 @@ import {
     animateMapMovements,
     autoZoom,
     baseTileLayer,
+    customStations,
     followMe,
     hiderMode,
     isLoading,
@@ -27,6 +28,7 @@ import {
     questions,
     thunderforestApiKey,
     triggerLocalRefresh,
+    useCustomStations,
 } from "@/lib/context";
 import { cn } from "@/lib/utils";
 import { applyQuestionsToMapGeoData, holedMask } from "@/maps";
@@ -37,6 +39,7 @@ import { DraggableMarkers } from "./DraggableMarkers";
 import { LeafletFullScreenButton } from "./LeafletFullScreenButton";
 import { MapPrint } from "./MapPrint";
 import { PolygonDraw } from "./PolygonDraw";
+import { CustomStationsMarkers } from "./CustomStationsMarkers";
 
 const getTileLayer = (tileLayer: string, thunderforestApiKey: string) => {
     switch (tileLayer) {
@@ -368,6 +371,7 @@ export const Map = ({ className }: { className?: string }) => {
             >
                 {getTileLayer($baseTileLayer, $thunderforestApiKey)}
                 <DraggableMarkers />
+                <CustomStationsMarkers />
                 <div className="leaflet-top leaflet-right">
                     <div className="leaflet-control flex-col flex gap-2">
                         <LeafletFullScreenButton />

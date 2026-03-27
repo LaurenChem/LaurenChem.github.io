@@ -135,6 +135,131 @@ export function parseCustomStationsFromText(
     return parseCSV(text);
 }
 
+function parseGeoJSONPolygons(obj: any) {
+    const features: Feature<Polygon | MultiPolygon>[] = [];
+
+    const pushFeature = (f: any) => {
+        if (!f?.geometry) return;
+        const { type, coordinates } = f.geometry;
+        if (type === "Polygon" || type === "MultiPolygon") {
+            features.push({
+                type: "Feature",
+                geometry: { type, coordinates },
+                properties: f.properties || {},
+            });
+        }
+    };
+
+    if (obj?.type === "FeatureCollection" && Array.isArray(obj.features)) {
+        obj.features.forEach((f: any) => pushFeature(f));
+    } else if (obj?.type === "Feature") {
+        pushFeature(obj);
+    } else if (obj?.type === "Polygon" || obj?.type === "MultiPolygon") {
+        features.push({
+            type: "Feature",
+            geometry: { type: obj.type, coordinates: obj.coordinates },
+            properties: {},
+        });
+    }
+
+    return { type: "FeatureCollection", features } as FeatureCollection<
+        Polygon | MultiPolygon
+    >;
+}
+
+function parseKMLPolygons(text: string) {
+    const features: Feature<Polygon>[] = [];
+    const placemarks = text.split(/<Placemark[\s>]/i).slice(1);
+
+    for (const pm of placemarks) {
+        const nameMatch = pm.match(/<name>([\s\S]*?)<\/name>/i);
+        const name = nameMatch ? nameMatch[1].trim() : undefined;
+
+        const polygonMatches = pm.matchAll(/<Polygon[\s\S]*?<\/Polygon>/gi);
+        for (const match of polygonMatches) {
+            const polygonText = match[0];
+            const coordsMatches = polygonText.matchAll(
+                /<coordinates>([\s\S]*?)<\/coordinates>/gi,
+            );
+            const rings: number[][][] = [];
+
+            for (const cm of coordsMatches) {
+                const coordText = cm[1].trim();
+                const coords = coordText
+                    .split(/\s+/)
+                    .map((c) => c.trim())
+                    .filter(Boolean)
+                    .map((coord) => coord.split(",").map((n) => parseFloat(n)))
+                    .filter(
+                        (arr) =>
+                            arr.length >= 2 &&
+                            Number.isFinite(arr[0]) &&
+                            Number.isFinite(arr[1]),
+                    )
+                    .map(([lng, lat]) => [lng, lat]);
+
+                if (coords.length >= 3) {
+                    if (
+                        coords[0][0] !== coords[coords.length - 1][0] ||
+                        coords[0][1] !== coords[coords.length - 1][1]
+                    ) {
+                        coords.push(coords[0]);
+                    }
+                    rings.push(coords);
+                }
+            }
+
+            if (rings.length > 0) {
+                features.push({
+                    type: "Feature",
+                    geometry: { type: "Polygon", coordinates: rings },
+                    properties: name ? { name } : {},
+                });
+            }
+        }
+    }
+
+    return {
+        type: "FeatureCollection",
+        features,
+    } as FeatureCollection<Polygon>;
+}
+
+export function parseMapPolygonsFromText(
+    text: string,
+    contentTypeHint?: string,
+): FeatureCollection<Polygon | MultiPolygon> {
+    const hint = (contentTypeHint || "").toLowerCase();
+
+    try {
+        if (hint.includes("json")) {
+            return parseGeoJSONPolygons(JSON.parse(text));
+        }
+        if (
+            hint.includes("kml") ||
+            text.includes("<kml") ||
+            text.includes("<Placemark")
+        ) {
+            return parseKMLPolygons(text);
+        }
+    } catch {
+        // fall through
+    }
+
+    try {
+        const obj = JSON.parse(text);
+        return parseGeoJSONPolygons(obj);
+    } catch {
+        // Not JSON
+    }
+
+    if (text.includes("<kml")) {
+        return parseKMLPolygons(text);
+    }
+
+    return { type: "FeatureCollection", features: [] };
+}
+
 export function normalizeToStationFeatures(stations: CustomStation[]) {
     // Return GeoJSON FeatureCollection of Points carrying properties { id, name }
     const features: Feature<Point>[] = stations.map((s) => ({

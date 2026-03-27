@@ -169,6 +169,22 @@ export const hidingRadiusUnits = persistentAtom<Units>(
         decode: JSON.parse,
     },
 );
+export const showStationsAsCircles = persistentAtom<boolean>(
+    "showStationsAsCircles",
+    false,
+    {
+        encode: JSON.stringify,
+        decode: JSON.parse,
+    },
+);
+export const showStationNames = persistentAtom<boolean>(
+    "showStationNames",
+    true,
+    {
+        encode: JSON.stringify,
+        decode: JSON.parse,
+    },
+);
 export const disabledStations = persistentAtom<string[]>(
     "disabledStations",
     [],

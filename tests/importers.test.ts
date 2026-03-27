@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { parseCustomStationsFromText } from "@/maps/api";
+import {
+    parseCustomStationsFromText,
+    parseMapPolygonsFromText,
+} from "@/maps/api";
 
 describe("parseCustomStationsFromText", () => {
     it("parses CSV with headers lat,lng,name", () => {
@@ -61,5 +64,59 @@ describe("parseCustomStationsFromText", () => {
             lat: 37.7,
             lng: -122.5,
         });
+    });
+});
+
+describe("parseMapPolygonsFromText", () => {
+    it("parses a GeoJSON polygon collection", () => {
+        const gj = {
+            type: "FeatureCollection",
+            features: [
+                {
+                    type: "Feature",
+                    geometry: {
+                        type: "Polygon",
+                        coordinates: [[[-122.4, 37.7], [-122.4, 37.8], [-122.3, 37.8], [-122.4, 37.7]]],
+                    },
+                },
+            ],
+        };
+
+        const parsed = parseMapPolygonsFromText(
+            JSON.stringify(gj),
+            "application/json",
+        );
+        expect(parsed.features.length).toBe(1);
+        expect(parsed.features[0].geometry.type).toBe("Polygon");
+    });
+
+    it("parses KML polygons from My Maps export", () => {
+        const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Placemark>
+      <name>Test Area</name>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              -122.5,37.7,0 -122.5,37.8,0 -122.4,37.8,0 -122.5,37.7,0
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>`;
+        const parsed = parseMapPolygonsFromText(
+            kml,
+            "application/vnd.google-earth.kml+xml",
+        );
+        expect(parsed.features.length).toBe(1);
+        expect(parsed.features[0].geometry.type).toBe("Polygon");
+        expect(parsed.features[0].geometry.coordinates[0][0]).toEqual([
+            -122.5,
+            37.7,
+        ]);
     });
 });

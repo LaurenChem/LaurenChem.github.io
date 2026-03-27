@@ -1,4 +1,5 @@
 import { useStore } from "@nanostores/react";
+import * as L from "leaflet";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 
@@ -36,6 +37,8 @@ import {
     polyGeoJSON,
     questions,
     save,
+    showStationsAsCircles,
+    showStationNames,
     showTutorial,
     thunderforestApiKey,
     triggerLocalRefresh,
@@ -49,6 +52,10 @@ import {
     shareOrFallback,
     uploadToPastebin,
 } from "@/lib/utils";
+import {
+    parseCustomStationsFromText,
+    parseMapPolygonsFromText,
+} from "@/maps/api";
 import { questionsSchema } from "@/maps/schema";
 
 import { LatitudeLongitude } from "./LatLngPicker";
@@ -83,6 +90,12 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
     const $pastebinApiKey = useStore(pastebinApiKey);
     const $alwaysUsePastebin = useStore(alwaysUsePastebin);
     const $followMe = useStore(followMe);
+    const map = useStore(leafletMapContext);
+    const $questions = useStore(questions);
+    const $showStationsAsCircles = useStore(showStationsAsCircles);
+    const $showStationNames = useStore(showStationNames);
+    const $useCustomStations = useStore(useCustomStations);
+    const $customStations = useStore(customStations);
     const $customInitPref = useStore(customInitPreference);
     const lastDefaultUnit = useRef($defaultUnit);
     const hasSyncedInitialUnit = useRef(false);
@@ -265,6 +278,47 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
         }
     };
 
+    const importMyMapsFile = async (file: File) => {
+        try {
+            const text = await file.text();
+
+            const polygons = parseMapPolygonsFromText(text, file.type);
+            if (!polygons.features.length) {
+                toast.error("No polygon play area found in file.");
+                return;
+            }
+
+            mapGeoJSON.set(polygons);
+            polyGeoJSON.set(polygons);
+
+            if (map) {
+                const bounds = L.geoJSON(polygons).getBounds();
+                if (bounds.isValid()) {
+                    map.fitBounds(bounds.pad(0.1));
+                }
+            }
+
+            const stations = parseCustomStationsFromText(text, file.type);
+            if (stations.length) {
+                customStations.set(stations);
+                useCustomStations.set(true);
+                includeDefaultStations.set(false);
+            }
+
+            // Force map refresh by touching the questions store
+            questions.set([...($questions || [])]);
+
+            toast.success(
+                `Imported ${polygons.features.length} polygon(s)` +
+                    (stations.length
+                        ? ` and ${stations.length} station(s)`
+                        : ""),
+            );
+        } catch (error: any) {
+            toast.error(`Failed to import file: ${error?.message ?? error}`);
+        }
+    };
+
     return (
         <div
             className={cn(
@@ -400,6 +454,26 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                     Paste Hiding Zone
                                 </Button>
                             </div>
+                            <div className="flex flex-col gap-2 w-full">
+                                <Label className="font-semibold font-poppins">
+                                    Import Google My Maps (KML/GeoJSON)
+                                </Label>
+                                <input
+                                    type="file"
+                                    accept=".kml,.geojson,.json"
+                                    onInput={async (e) => {
+                                        const file = (
+                                            e.target as HTMLInputElement
+                                        ).files?.[0];
+                                        if (!file) return;
+                                        await importMyMapsFile(file);
+                                    }}
+                                />
+                                <p className="text-xs text-gray-500">
+                                    Polygons will be used as the play area and
+                                    points as custom stations.
+                                </p>
+                            </div>
                             <Separator className="bg-slate-300 w-[280px]" />
                             <Label>Default Unit</Label>
                             <UnitSelect
@@ -516,6 +590,36 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                     }
                                 />
                             </div>
+                            {$useCustomStations && $customStations.length > 0 && (
+                                <div className="flex flex-row items-center gap-2">
+                                    <label className="text-2xl font-semibold font-poppins">
+                                        Show stations as 500m circles?
+                                    </label>
+                                    <Checkbox
+                                        checked={$showStationsAsCircles}
+                                        onCheckedChange={() =>
+                                            showStationsAsCircles.set(
+                                                !$showStationsAsCircles,
+                                            )
+                                        }
+                                    />
+                                </div>
+                            )}
+                            {$useCustomStations && $customStations.length > 0 && (
+                                <div className="flex flex-row items-center gap-2">
+                                    <label className="text-2xl font-semibold font-poppins">
+                                        Show station names?
+                                    </label>
+                                    <Checkbox
+                                        checked={$showStationNames}
+                                        onCheckedChange={() =>
+                                            showStationNames.set(
+                                                !$showStationNames,
+                                            )
+                                        }
+                                    />
+                                </div>
+                            )}
                             <div className="flex flex-row items-center gap-2">
                                 <label className="text-2xl font-semibold font-poppins">
                                     Enable planning mode?
